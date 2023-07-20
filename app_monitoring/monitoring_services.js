@@ -170,7 +170,7 @@ async function processMonitoring() {
 }
 
 if (serviceAvailability()) {
-  setInterval(receiveMessage(), 1000);
+  receiveMessage(), 1000;
 } else {
   console.log("================================== SERVICE UNAVAILABLE =====================================");
 }
