@@ -1,0 +1,21 @@
+show collections
+db.createCollection("requests")
+show collections
+use WarehouseManagement
+show collections
+use WarehouseManagement
+show collections
+show collection
+use WarehouseManagement
+show dbs
+exit
+show collections
+use WarehouseManagement
+show dbs
+db.collection.find()
+ls
+show ls
+use accounts
+show collections
+use WarehouseManagement
+show dbs

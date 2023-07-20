@@ -1,0 +1,47 @@
+<!--
+  Author: Allen Dylan Antony
+  Date: 14 June 2023
+  Functionality: display account registration view
+-->
+
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="login.css" />
+    <title></title>
+  </head>
+  <body>
+    <div class="login-box">
+      <img src="/images/logo.png" alt="logo" width="80%" height="80%" style="padding-bottom: 15px" />
+      <br />
+      <form method="post" action="/registration-success" id="user-form">
+        <div class="user-box">
+          <input type="text" name="username" required="" />
+          <label>Username</label>
+        </div>
+        <div class="user-box">
+          <input type="email" name="email" required="" />
+          <label>User Email</label>
+        </div>
+        <div class="user-box">
+          <input type="password" name="password" required="" />
+          <label>Password</label>
+        </div>
+        <div class="user-box">
+          <input type="text" name="cfmpassword" required="" />
+          <label>Confirm Password</label>
+        </div>
+        <div class="user-box">
+          <input type="text" name="phonenum" required="" />
+          <label>Contact Info</label>
+        </div>
+        <div class="user-box">
+          <select name="usertype" form="user-form">
+            <option value="customer">Customer</option>
+            <option value="employee">Employee</option>
+          </select>
+        </div>
+        <input type="submit" />
+      </form>
+    </div>
+  </body>
+</html>

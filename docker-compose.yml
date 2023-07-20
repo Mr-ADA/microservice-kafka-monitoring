@@ -1,0 +1,73 @@
+version: "3.8"
+services:
+  zookeeper:
+    image: "bitnami/zookeeper:latest"
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - "zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: "bitnami/kafka:latest"
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./data/kafka:/var/run/docker.sock
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_ENABLE_KRAFT=no
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    depends_on:
+      - zookeeper
+  mongo_services:
+    image: mongo
+    container_name: mongo_services
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo_db:/data/db
+  admin_services:
+    container_name: admin_services
+    build: ./app_admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app_admin:/app
+    environment:
+      - PORT=3000
+      - MONGO_URL=mongodb://mongo_services:27017/WarehouseManagement
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=account-topic
+    depends_on:
+      - mongo_services
+      - kafka
+    extra_hosts:
+      mongo: 172.17.0.1
+  monitoring_services:
+    container_name: monitoring_services
+    build: ./app_monitoring
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./app_monitoring:/app_monitoring
+    environment:
+      - PORT=3002
+      - MONGO_URL=mongodb://mongo_services:27017/WarehouseManagement
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=account-topic
+    depends_on:
+      - mongo_services
+      - kafka
+    extra_hosts:
+      mongo: 172.17.0.1
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
