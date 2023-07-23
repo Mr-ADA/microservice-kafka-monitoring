@@ -1,32 +1,43 @@
+//import all libraries needed for the project
 const express = require("express");
 const app = express();
 const path = require("path");
-const monitoring_results = require("./monitoring_services.js");
-const ejs = require("ejs");
+const http = require("http");
+const server = http.createServer(app);
+const { Server } = require("socket.io");
 
-//set view engine for the project => dynamic content
-app.set("view engine", "ejs");
-
-// Serve static files from the "views" directory
-app.use(express.static(path.join(__dirname, "views")));
-
-app.use(express.json());
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, "public")));
-
-//listen to port 3002
-
-app.listen(3002, () => {
-  console.log("listening to port 3002");
+//define io configuration
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
 });
 
+const monitoring_results = require("./monitoring_services.js");
+
+// Serve static files from the "views" directory
+app.use(express.static(path.join(__dirname, "/views")));
+// Read json file coming to the server
+app.use(express.json());
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, "/public")));
+
 app.get("/", (req, res) => {
-  monitoring_results.then((message) => {
-    // message["status"] = monitoring_results.serviceAvailability();
-    console.log(message);
-    console.log("==================== RENDER VIEW ===============================");
-    res.render("monitoring-view.ejs", { message });
+  res.sendFile(path.join(__dirname, "/views/monitoring-view.html"));
+});
+
+io.on("connection", (socket) => {
+  monitoring_results.then((messages) => {
+    socket.emit("emitMessage", messages);
+    socket.on("newMessage", () => {
+      socket.emit("emitMessage", messages);
+      socket.broadcast.emit("emitMessage", messages);
+    });
   });
 });
 
-// consumer.disconnect();
+//listen to port 3002
+const port = 3002;
+server.listen(port, () => {
+  console.log(`Server is listening on port ${port}`);
+});

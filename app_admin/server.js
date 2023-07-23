@@ -4,12 +4,6 @@
   Functionality: server.js acts a server for account microservices and handle entries
 */
 
-/*
-LOG 5TH JULY 2023
-
-TO CREATE KAFKA PRODUCER THAT PERFORM TOPIC CREATION CALLED "AUTH SERVICE"
-*/
-
 //=================== DEVELOPMENT ENVIRONMENT ===============================
 //import express to handle server
 const express = require("express");

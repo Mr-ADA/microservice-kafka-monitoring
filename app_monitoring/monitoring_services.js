@@ -22,8 +22,8 @@ const producer = kafka.producer({
 });
 producer.connect();
 
-//============================= CONSUMER CONFIGURATION =====================================
-const consumer = kafka.consumer({ groupId: "monitoring-group" });
+//============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
+const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
 consumer.connect();
 consumer.subscribe({ topics: ["login-message", "admin-availability"], fromBeginning: true });
 
@@ -38,18 +38,8 @@ const servicesRunning = async () => {
 };
 
 servicesRunning();
-//=========================== MONITORING METRICS =========================================
 
-/*
-  Metrics
-  •	Rate - The number of requests the service is handling per second.
-        Rate = Total number of request / time frame (1 second)
-  •	Request Duration - The amount of time each request takes.
-        Duration = Time of Request Received – Time of Request Sent
-  • Availability - Available, if the microservices respond to the request
-                 - Inavailable, if the microservices does not respond to the request
-  • Error Rate - Number of failed request per second
-*/
+//=========================== REQUEST SCHEMA DEFINITION =========================================
 const Schema = mongoose.Schema;
 
 const requestSchema = new Schema({
@@ -75,60 +65,80 @@ const Request = mongoose.model("Request", requestSchema);
 Request.createCollection()
   .then((collection) => {
     console.log("========================= COLLECTION IS CREATED! ====================================");
-    console.log(collection);
   })
   .catch((err) => {
+    console.log("==================== ERROR ON COLLECTION CREATION ===============================");
     console.log(err);
   });
 
 //=========================== MONITORING FUNCTIONALITY =========================================
+
+/*
+  Monitoring Metrics
+  •	Rate - The number of requests the service is handling per second.
+        Rate = Total number of request / time frame (1 second)
+  •	Processing Time - The amount of time each request
+        Processing Time = Time of Request Received – Time of Request Sent
+  • Response Duration - The amount of time the system respond to a request 
+  • Availability - Available, if the microservices respond to the request
+                 - Unavailable, if the microservices does not respond to the request
+*/
+
+//check topic availability on apache kafka
 async function topicAvailability(topic_name) {
   //check topic availibility
   try {
     const metadata = admin.fetchTopicMetadata({ topics: [topic_name] });
     return metadata.topics.length > 0;
   } catch (err) {
+    //log error if exists => for debugging purpose
+    console.log("==================== ERROR ON TOPIC AVAILABILITY CHECKER ===============================");
     console.error("Error occured: ", err);
     return false;
   }
 }
 
-let receivedMessage = [];
-async function serviceAvailability() {
+let availabilityMessage = [];
+//check service availability
+async function serviceAvailability(topic) {
+  //check if topic is created by the service / available
   const topicExists = topicAvailability("admin-availability");
   try {
     if (topicExists) {
+      //check if message coming in from the producer(microservices)
       consumer.run({
         eachMessage: ({ topic, partition, message }) => {
-          console.log("==================== ADMIN SERVICE IS AVAILABLE ===============================");
-          console.log(JSON.parse(message));
-          receivedMessage.push(JSON.parse(message));
+          availabilityMessage.push(JSON.parse(message));
         },
       });
     } else {
       console.log("Topic does not exist yet");
     }
   } catch (err) {
+    //log error if exists => for debugging purpose
     console.log(err);
-    console.log("==================== ERROR OCCURED ===============================");
+    console.log("==================== ERROR ON SERVICE AVAILABILITY CHECKER ===============================");
   }
-  return receivedMessage.length > 0 ? true : false;
+
+  console.log(availabilityMessage);
+  return availabilityMessage.length > 0 ? true : false;
 }
 
 async function receiveMessage() {
+  //check if topic available
   const topicExists = topicAvailability("login-message");
-  console.log(topicExists);
   try {
     if (topicExists) {
       consumer.run({
         eachMessage: ({ topic, partition, message }) => {
+          //if topic available, define object based on the incoming message
           var request = new Request({
             service_name: "Admin Service",
             time: Date.now(),
             request_duration: Date.now() - message.timestamp,
             request_status: serviceAvailability(),
           });
-          // console.log(request);
+          //save the message to MongoDB for history record purpose
           request
             .save()
             .then()
@@ -138,43 +148,43 @@ async function receiveMessage() {
         },
       });
     } else {
-      console.log("Topic does not exist yet");
+      console.log("==================== TOPIC DOES NOT EXIST ===============================");
     }
   } catch (err) {
+    //log error if exists => for debugging purpose
     console.log(err);
-    console.log("==================== ERROR OCCURED ===============================");
+    console.log("==================== ERROR ON RECEIVING MESSAGE ===============================");
   }
 }
 
+//aggregate result of the MongoDB document
 async function processMonitoring() {
   try {
-    var result_aggregate = await Request.aggregate([
+    const result_aggregate = await Request.aggregate([
       {
         $group: {
           _id: "$service_name",
           total_request: { $count: {} },
           avgDuration: { $avg: "$request_duration" },
-        },
-      },
-      {
-        $addFields: {
-          status: "$request_status",
+          request_status: { $addToSet: "$request_status" },
         },
       },
     ]).exec();
+
     return result_aggregate;
   } catch (err) {
     console.log(err);
-    console.log("==================== ERROR OCCURED ===============================");
+    console.log("==================== ERROR ON PROCESS MONITORING ===============================");
   }
 }
 
 if (serviceAvailability()) {
-  receiveMessage(), 1000;
+  receiveMessage();
 } else {
   console.log("================================== SERVICE UNAVAILABLE =====================================");
 }
 
+//disconnect kafka client after the program is finished
 admin.disconnect();
 producer.disconnect();
 consumer.disconnect();

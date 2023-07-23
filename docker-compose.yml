@@ -47,8 +47,6 @@ services:
     depends_on:
       - mongo_services
       - kafka
-    extra_hosts:
-      mongo: 172.17.0.1
   monitoring_services:
     container_name: monitoring_services
     build: ./app_monitoring
@@ -64,8 +62,6 @@ services:
     depends_on:
       - mongo_services
       - kafka
-    extra_hosts:
-      mongo: 172.17.0.1
 volumes:
   zookeeper_data:
     driver: local
