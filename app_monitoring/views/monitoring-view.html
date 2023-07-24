@@ -19,6 +19,7 @@
         });
 
         socket.on("emitMessage", (messages) => {
+          console.log("====================== EMIT MESSAGE HTML ===========================");
           console.log(messages);
           const tableBody = document.querySelector("#monitoringTableBody");
           tableBody.innerHTML = "";

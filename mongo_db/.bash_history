@@ -49,3 +49,10 @@ mongosh
 exit
 mongosh
 exit
+ls
+cd data
+ls
+cd db
+ls
+mongosh WarehouseManagement --eval 'db.dropDatabase()'
+exit

@@ -23,9 +23,9 @@ const producer = kafka.producer({
 producer.connect();
 
 //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
-const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
-consumer.connect();
-consumer.subscribe({ topics: ["login-message", "admin-availability"], fromBeginning: true });
+const consumer1 = kafka.consumer({ groupId: "admin-availability-group" });
+consumer1.connect();
+consumer1.subscribe({ topic: "admin-availability" });
 
 //================== MONGODB ENVIRONMENT ================================================
 const servicesRunning = async () => {
@@ -84,67 +84,22 @@ Request.createCollection()
                  - Unavailable, if the microservices does not respond to the request
 */
 
-//check topic availability on apache kafka
-async function topicAvailability(topic_name) {
-  //check topic availibility
-  try {
-    const metadata = admin.fetchTopicMetadata({ topics: [topic_name] });
-    return metadata.topics.length > 0;
-  } catch (err) {
-    //log error if exists => for debugging purpose
-    console.log("==================== ERROR ON TOPIC AVAILABILITY CHECKER ===============================");
-    console.error("Error occured: ", err);
-    return false;
-  }
-}
-
-let availabilityMessage = [];
-//check service availability
-async function serviceAvailability(topic) {
-  //check if topic is created by the service / available
-  const topicExists = topicAvailability("admin-availability");
-  try {
-    if (topicExists) {
-      //check if message coming in from the producer(microservices)
-      consumer.run({
-        eachMessage: ({ topic, partition, message }) => {
-          availabilityMessage.push(JSON.parse(message));
-        },
-      });
-    } else {
-      console.log("Topic does not exist yet");
-    }
-  } catch (err) {
-    //log error if exists => for debugging purpose
-    console.log(err);
-    console.log("==================== ERROR ON SERVICE AVAILABILITY CHECKER ===============================");
-  }
-
-  console.log(availabilityMessage);
-  return availabilityMessage.length > 0 ? true : false;
-}
+let incoming_messages = [];
 
 async function receiveMessage() {
+  //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
+  const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
+  consumer.connect();
+  consumer.subscribe({ topic: "login-message", fromBeginning: true });
+
   //check if topic available
-  const topicExists = topicAvailability("login-message");
+  const topicExists = true;
+  // const topicExists = topicAvailability("login-message");
   try {
     if (topicExists) {
       consumer.run({
         eachMessage: ({ topic, partition, message }) => {
-          //if topic available, define object based on the incoming message
-          var request = new Request({
-            service_name: "Admin Service",
-            time: Date.now(),
-            request_duration: Date.now() - message.timestamp,
-            request_status: serviceAvailability(),
-          });
-          //save the message to MongoDB for history record purpose
-          request
-            .save()
-            .then()
-            .catch((err) => {
-              console.log(err);
-            });
+          incoming_messages.push(JSON.parse(message.value));
         },
       });
     } else {
@@ -155,12 +110,42 @@ async function receiveMessage() {
     console.log(err);
     console.log("==================== ERROR ON RECEIVING MESSAGE ===============================");
   }
+  consumer.disconnect();
+}
+
+function saveMessage() {
+  incoming_messages.forEach((message) => {
+    var request = new Request({
+      service_name: "Admin Service",
+      time: Date.now(),
+      request_duration: Date.now() - message.timestamp,
+      request_status: true,
+    });
+    //save the message to MongoDB for history record purpose
+    if (!checkDocumentAvailability(Request)) {
+      request
+        .save()
+        .then()
+        .catch((err) => {
+          console.log(err);
+        });
+    }
+  });
+}
+
+function checkDocumentAvailability(schema) {
+  let availability_promise = schema.find({ time: { $exists: true } });
+  let isAvailable = false;
+  availability_promise.then((message) => {
+    isAvailable = true;
+  });
+  return isAvailable;
 }
 
 //aggregate result of the MongoDB document
 async function processMonitoring() {
   try {
-    const result_aggregate = await Request.aggregate([
+    var monitoring_result = await Request.aggregate([
       {
         $group: {
           _id: "$service_name",
@@ -170,22 +155,67 @@ async function processMonitoring() {
         },
       },
     ]).exec();
-
-    return result_aggregate;
+    return monitoring_result;
   } catch (err) {
     console.log(err);
     console.log("==================== ERROR ON PROCESS MONITORING ===============================");
   }
 }
 
-if (serviceAvailability()) {
-  receiveMessage();
-} else {
-  console.log("================================== SERVICE UNAVAILABLE =====================================");
-}
+module.exports = {
+  receiveMessage,
+  saveMessage,
+  processMonitoring,
+};
+
+// module.exports = monitoring_result;
+// if (serviceAvailability()) {
+
+// } else {
+//   console.log("================================== SERVICE UNAVAILABLE =====================================");
+// }
 
 //disconnect kafka client after the program is finished
 admin.disconnect();
 producer.disconnect();
-consumer.disconnect();
-module.exports = processMonitoring();
+
+consumer1.disconnect();
+
+//check topic availability on apache kafka
+// async function topicAvailability(topic_name) {
+//   //check topic availibility
+//   try {
+//     const metadata = admin.fetchTopicMetadata({ topic: topic_name });
+//     return metadata.topics.length > 0;
+//   } catch (err) {
+//     //log error if exists => for debugging purpose
+//     console.log("==================== ERROR ON TOPIC AVAILABILITY CHECKER ===============================");
+//     console.error("Error occured: ", err);
+//     return false;
+//   }
+// }
+
+// //check service availability
+// async function serviceAvailability(topic) {
+//   //check if topic is created by the service / available
+//   const topicExists = topicAvailability("admin-availability");
+//   try {
+//     if (topicExists) {
+//       //check if message coming in from the producer(microservices)
+//       consumer1.run({
+//         eachMessage: ({ topic, partition, message }) => {
+//           availabilityMessage.push(JSON.parse(message));
+//         },
+//       });
+//     } else {
+//       console.log("Topic does not exist yet");
+//     }
+//   } catch (err) {
+//     //log error if exists => for debugging purpose
+//     console.log(err);
+//     console.log("==================== ERROR ON SERVICE AVAILABILITY CHECKER ===============================");
+//   }
+
+//   console.log(availabilityMessage);
+//   return availabilityMessage.length > 0 ? true : false;
+// }

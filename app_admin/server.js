@@ -14,7 +14,6 @@ const mongoose = require("mongoose");
 
 //import body parser to handle file formatting
 const body_parser = require("body-parser");
-var https = require("https");
 var http = require("http");
 //=================== KAFKA ENVIRONMENT ===============================
 
@@ -146,7 +145,6 @@ app.post("/registration-success", url_encoded_parser, (req, res) => {
 app.get("/admin-home", (req, res) => {
   Account.find({})
     .then((accounts) => {
-      console.log(accounts);
       res.render("./admin_home_view", { accounts });
     })
     .catch((error) => {

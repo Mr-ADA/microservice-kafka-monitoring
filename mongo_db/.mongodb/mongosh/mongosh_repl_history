@@ -1,4 +1,15 @@
 show collections
+use WarehouseManagement
+show dbs
+display requests
+print requests;
+show requests
+print requests
+requests.find({})
+show collections
+use WarehouseManagement
+show dbs
+show collections
 db.createCollection("requests")
 show collections
 use WarehouseManagement
