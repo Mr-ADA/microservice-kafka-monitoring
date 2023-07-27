@@ -1,3 +1,24 @@
+exit
+db.dropDatabase()
+use WarehouseManagement
+exit
+db.dropDatabase()
+mongosh WarehouseManagement --eval 'db.dropDatabase()'
+mongo WarehouseManagement --eval 'db.dropDatabase()'
+use WarehouseManagement
+exit
+db.dropDatabase()
+use WarehouseManagement
+mongosh WarehouseManagement --eval 'db.dropDatabase()'
+mongo WarehouseManagement --eval 'db.dropDatabase()'
+show dbs
+mongo WarehouseManagement --eval 'db.dropDatabase'
+mongosh WarehouseManagement --eval 'db.dropDatabase'
+db.dropDatabase(WarehouseManagement)
+db.drop(WarehouseManagement)
+drop WarehouseManagement
+db.dropDatabase()
+use WarehouseManagement
 show collections
 use WarehouseManagement
 show dbs

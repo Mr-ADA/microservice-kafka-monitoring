@@ -9,49 +9,27 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet" />
     <title>WMS</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.js" integrity="sha256-JlqSTELeR4TLqP0OG9dxM7yDPqX1ox/HfgiSLBj8+kM=" crossorigin="anonymous"></script>
     <script>
       function getMessage() {
-        const socket = io("http://127.0.0.1:3002");
+        const socket = io("http://localhost:3002");
 
         socket.on("connect", () => {
           console.log("connected");
         });
 
-        socket.on("emitMessage", (messages) => {
+        socket.on("emitMessage", (message) => {
           console.log("====================== EMIT MESSAGE HTML ===========================");
-          console.log(messages);
-          const tableBody = document.querySelector("#monitoringTableBody");
-          tableBody.innerHTML = "";
-
-          // Create table rows for the filtered suppliers
-          messages.forEach((message) => {
-            const row = document.createElement("tr");
-            // Create table cells and populate them with data
-
-            //append Service name column
-            const monitoringServiceName = document.createElement("td");
-            monitoringServiceName.textContent = message._id;
-            row.appendChild(monitoringServiceName);
-
-            //append Request number column
-            const monitoringRequest = document.createElement("td");
-            monitoringRequest.textContent = message.total_request;
-            row.appendChild(monitoringRequest);
-
-            //append average duration column
-            const monitoringAvgDuration = document.createElement("td");
-            monitoringAvgDuration.textContent = message.avgDuration;
-            row.appendChild(monitoringAvgDuration);
-
-            //append availability column
-            const monitoringAvailability = document.createElement("td");
-            monitoringAvailability.textContent = message.request_status ? "Available" : "Unavailable";
-            row.appendChild(monitoringAvailability);
-
-            // Append the row to the table body
-            tableBody.appendChild(row);
-          });
+          console.log(message);
+          var serviceNameCell = document.getElementById("admin-table-service");
+          var numRequestCell = document.getElementById("admin-table-num-request");
+          var avgTimeCell = document.getElementById("admin-table-avg-time");
+          var availabilityCell = document.getElementById("admin-table-availability");
+          serviceNameCell.innerHTML = message._id;
+          numRequestCell.innerHTML = message.total_request;
+          avgTimeCell.innerHTML = message.avgDuration;
+          availabilityCell.innerHTML = message.request_status ? "Available" : "Unavailable";
         });
       }
     </script>
@@ -101,7 +79,14 @@
                   <th>Availability</th>
                 </tr>
               </thead>
-              <tbody id="monitoringTableBody"></tbody>
+              <tbody id="monitoring-table-body">
+                <tr id="admin-table-row">
+                  <td id="admin-table-service"></td>
+                  <td id="admin-table-num-request"></td>
+                  <td id="admin-table-avg-time"></td>
+                  <td id="admin-table-availability"></td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>

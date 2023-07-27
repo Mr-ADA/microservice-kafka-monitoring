@@ -5,6 +5,19 @@ const path = require("path");
 const app = express.Router();
 const mongoose = require("mongoose");
 
+//=========================== MONITORING FUNCTIONALITY =========================================
+
+/*
+  Monitoring Metrics
+  •	Rate - The number of requests the service is handling per second.
+        Rate = Total number of request / time frame (1 second)
+  •	Processing Time - The amount of time each request
+        Processing Time = Time of Request Received – Time of Request Sent
+  • Response Duration - The amount of time the system respond to a request 
+  • Availability - Available, if the microservices respond to the request
+                 - Unavailable, if the microservices does not respond to the request
+*/
+
 app.use(express.static(path.join(__dirname, "views")));
 
 //============================== KAFKA ENVIRONMENT =========================================
@@ -23,6 +36,10 @@ const producer = kafka.producer({
 producer.connect();
 
 //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
+const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
+consumer.connect();
+consumer.subscribe({ topic: "login-message", fromBeginning: false });
+
 const consumer1 = kafka.consumer({ groupId: "admin-availability-group" });
 consumer1.connect();
 consumer1.subscribe({ topic: "admin-availability" });
@@ -43,6 +60,10 @@ servicesRunning();
 const Schema = mongoose.Schema;
 
 const requestSchema = new Schema({
+  session_id: {
+    type: String,
+    required: true,
+  },
   service_name: {
     type: String,
     required: true,
@@ -71,26 +92,12 @@ Request.createCollection()
     console.log(err);
   });
 
-//=========================== MONITORING FUNCTIONALITY =========================================
-
-/*
-  Monitoring Metrics
-  •	Rate - The number of requests the service is handling per second.
-        Rate = Total number of request / time frame (1 second)
-  •	Processing Time - The amount of time each request
-        Processing Time = Time of Request Received – Time of Request Sent
-  • Response Duration - The amount of time the system respond to a request 
-  • Availability - Available, if the microservices respond to the request
-                 - Unavailable, if the microservices does not respond to the request
-*/
-
 let incoming_messages = [];
 
 async function receiveMessage() {
   //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
-  const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
-  consumer.connect();
-  consumer.subscribe({ topic: "login-message", fromBeginning: true });
+
+  //TO BE IMPLEMENTED: create 2 parameters (consumerGroup, messageTopic)
 
   //check if topic available
   const topicExists = true;
@@ -110,41 +117,54 @@ async function receiveMessage() {
     console.log(err);
     console.log("==================== ERROR ON RECEIVING MESSAGE ===============================");
   }
-  consumer.disconnect();
 }
 
-function saveMessage() {
-  incoming_messages.forEach((message) => {
-    var request = new Request({
+async function saveMessage() {
+  //TO BE IMPLEMENTED: create 1 parameters (serviceName)
+  for (const message of incoming_messages) {
+    //iterate through each message and keep the metadata
+    const request = new Request({
+      session_id: message.session_id,
       service_name: "Admin Service",
       time: Date.now(),
       request_duration: Date.now() - message.timestamp,
       request_status: true,
     });
-    //save the message to MongoDB for history record purpose
-    if (!checkDocumentAvailability(Request)) {
-      request
-        .save()
-        .then()
-        .catch((err) => {
-          console.log(err);
-        });
+
+    try {
+      //check the existence of the document
+      const documentExists = await checkDocumentAvailability(request);
+      console.log("Document exists:", documentExists);
+
+      if (!documentExists) {
+        await request.save();
+        console.log("Request saved successfully");
+      } else {
+        console.log("Request already exists in the database");
+      }
+    } catch (error) {
+      console.log("Error checking document availability:", error);
     }
-  });
+  }
 }
 
-function checkDocumentAvailability(schema) {
-  let availability_promise = schema.find({ time: { $exists: true } });
-  let isAvailable = false;
-  availability_promise.then((message) => {
-    isAvailable = true;
-  });
-  return isAvailable;
+async function checkDocumentAvailability(value) {
+  //checking the existence of the current incoming request by its session ID
+  try {
+    //message is available
+    const message = await Request.find({ session_id: value.session_id }).exec();
+    return message.length > 0;
+  } catch (err) {
+    //message is not available
+    console.log("error checking document availability:", error);
+    return false;
+  }
 }
 
 //aggregate result of the MongoDB document
 async function processMonitoring() {
   try {
+    //manipulate result in order to get servicename, total_request, avgDuration, and request_status
     var monitoring_result = await Request.aggregate([
       {
         $group: {
@@ -178,7 +198,7 @@ module.exports = {
 //disconnect kafka client after the program is finished
 admin.disconnect();
 producer.disconnect();
-
+consumer.disconnect();
 consumer1.disconnect();
 
 //check topic availability on apache kafka

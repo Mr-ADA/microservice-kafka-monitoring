@@ -11,6 +11,14 @@ const app = express();
 
 const path = require("path");
 const mongoose = require("mongoose");
+const session = require("express-session");
+app.use(
+  session({
+    secret: "warehouse-management",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
 //import body parser to handle file formatting
 const body_parser = require("body-parser");
@@ -170,12 +178,6 @@ app.post("/admin-update/:id", (req, res) => {
 app.post("/admin-home", url_encoded_parser, (req, res) => {
   res.redirect("/admin-home");
   //============================ KAFKA PRODUCER =====================================
-  var login_request = {
-    name: req.body.username,
-    password: req.body.password,
-    timestamp: Date.now(),
-    status: true,
-  };
   admin.createTopics({
     timeout: 5000,
     topics: [
@@ -186,6 +188,14 @@ app.post("/admin-home", url_encoded_parser, (req, res) => {
       },
     ],
   });
+  var login_request = {
+    session_id: req.sessionID,
+    name: req.body.username,
+    password: req.body.password,
+    timestamp: Date.now(),
+    status: true,
+  };
+
   console.log("================================ TOPIC IS CREATED! ======================================");
 
   //send a message after successful registration
