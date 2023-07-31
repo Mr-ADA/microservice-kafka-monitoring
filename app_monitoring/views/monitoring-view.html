@@ -21,7 +21,6 @@
 
         socket.on("emitMessage", (message) => {
           console.log("====================== EMIT MESSAGE HTML ===========================");
-          console.log(message);
           var serviceNameCell = document.getElementById("admin-table-service");
           var numRequestCell = document.getElementById("admin-table-num-request");
           var avgTimeCell = document.getElementById("admin-table-avg-time");
@@ -29,7 +28,8 @@
           serviceNameCell.innerHTML = message._id;
           numRequestCell.innerHTML = message.total_request;
           avgTimeCell.innerHTML = message.avgDuration;
-          availabilityCell.innerHTML = message.request_status ? "Available" : "Unavailable";
+          console.log("service availability" + message.latest_request_status);
+          availabilityCell.innerHTML = message.latest_request_status ? "Available" : "Unavailable";
         });
       }
     </script>

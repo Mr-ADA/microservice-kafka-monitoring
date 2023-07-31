@@ -12,6 +12,8 @@ const app = express();
 const path = require("path");
 const mongoose = require("mongoose");
 const session = require("express-session");
+
+//======================== SESSION SETUP =====================================
 app.use(
   session({
     secret: "warehouse-management",
@@ -41,11 +43,22 @@ producer.connect();
 const admin = kafka.admin();
 admin.connect();
 
+//create topic should there is no topic available
+admin.createTopics({
+  timeout: 5000,
+  topics: [
+    {
+      topic: "service-availability",
+      numPartitions: 1,
+      replicationFactor: 1,
+    },
+  ],
+});
 //============================= ADMIN CONFIGURATION =====================================
 
 //monitoring_helper is created to send message to monitoring microservces that the current service is available
-const monitoring_helper = require("./monitoring_helper.js");
-monitoring_helper.reportToMonitoring(admin, producer);
+// const monitoring_helper = require("./monitoring_helper.js");
+// const available_report = monitoring_helper.sendHealthCheckMessage(kafka);
 
 //================== MONGODB ENVIRONMENT ================================================
 const servicesRunning = async () => {
@@ -160,6 +173,10 @@ app.get("/admin-home", (req, res) => {
     });
 });
 
+app.get("/available", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
+
 //admin update account
 app.post("/admin-update/:id", (req, res) => {
   var id = req.params.id;
@@ -177,6 +194,7 @@ app.post("/admin-update/:id", (req, res) => {
 //get form input from login_view
 app.post("/admin-home", url_encoded_parser, (req, res) => {
   res.redirect("/admin-home");
+
   //============================ KAFKA PRODUCER =====================================
   admin.createTopics({
     timeout: 5000,
@@ -193,7 +211,6 @@ app.post("/admin-home", url_encoded_parser, (req, res) => {
     name: req.body.username,
     password: req.body.password,
     timestamp: Date.now(),
-    status: true,
   };
 
   console.log("================================ TOPIC IS CREATED! ======================================");
@@ -248,5 +265,28 @@ app.use((req, res) => {
   res.status(404).render("404", { root: __dirname });
 });
 
-producer.disconnect();
 admin.disconnect();
+producer.disconnect();
+
+//monitoring_helper is created to send message to monitoring microservces that the current service is available
+// const monitoring_helper = require("./monitoring_helper.js");
+// const available_report = await monitoring_helper.sendHealthCheckMessage(kafka);
+
+// const healthCheckMessage = {
+//   session_id: req.sessionID,
+//   serviceName: "Admin",
+//   isHealthy: true,
+//   timestamp: Date.now(),
+// };
+
+// producer
+//   .send({
+//     topic: "service-availability",
+//     messages: [{ value: JSON.stringify(healthCheckMessage) }],
+//   })
+//   .then(() => {
+//     console.log(`Health check message sent for ${healthCheckMessage.serviceName}`);
+//   })
+//   .catch((error) => {
+//     console.error(`Error sending health check message for ${healthCheckMessage.serviceName}:`, error);
+//   });

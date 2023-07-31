@@ -4,13 +4,13 @@ const express = require("express");
 const path = require("path");
 const app = express.Router();
 const mongoose = require("mongoose");
+const axios = require("axios");
 
 //=========================== MONITORING FUNCTIONALITY =========================================
 
 /*
   Monitoring Metrics
-  •	Rate - The number of requests the service is handling per second.
-        Rate = Total number of request / time frame (1 second)
+  •	Request Number - The number of requests the service is handling per second.
   •	Processing Time - The amount of time each request
         Processing Time = Time of Request Received – Time of Request Sent
   • Response Duration - The amount of time the system respond to a request 
@@ -38,11 +38,7 @@ producer.connect();
 //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
 const consumer = kafka.consumer({ groupId: "admin-monitoring-group" });
 consumer.connect();
-consumer.subscribe({ topic: "login-message", fromBeginning: false });
-
-const consumer1 = kafka.consumer({ groupId: "admin-availability-group" });
-consumer1.connect();
-consumer1.subscribe({ topic: "admin-availability" });
+consumer.subscribe({ topics: ["login-message"], fromBeginning: false });
 
 //================== MONGODB ENVIRONMENT ================================================
 const servicesRunning = async () => {
@@ -92,21 +88,41 @@ Request.createCollection()
     console.log(err);
   });
 
+//defining incoming_messages to save incoming messages
 let incoming_messages = [];
+
+async function checkMicroservicesHealth(microserviceUrls) {
+  const serviceAvailability = {};
+  for (const [serviceName, serviceUrl] of Object.entries(microserviceUrls)) {
+    try {
+      const response = await axios.get(`${serviceUrl}/available`);
+      if (response.status === 200) {
+        console.log(`${serviceName} is available.`);
+        serviceAvailability[serviceName] = true;
+      } else {
+        console.log(`${serviceName} is unavailable.`);
+        serviceAvailability[serviceName] = false;
+      }
+    } catch (error) {
+      console.log(`${serviceName} is unavailable. Error: ${error.message}`);
+    }
+  }
+  return serviceAvailability;
+}
 
 async function receiveMessage() {
   //============================= CONSUMER ADMIN SERVICE CONFIGURATION =====================================
-
   //TO BE IMPLEMENTED: create 2 parameters (consumerGroup, messageTopic)
 
-  //check if topic available
   const topicExists = true;
   // const topicExists = topicAvailability("login-message");
   try {
     if (topicExists) {
       consumer.run({
         eachMessage: ({ topic, partition, message }) => {
-          incoming_messages.push(JSON.parse(message.value));
+          var oneMessage = JSON.parse(message.value);
+          incoming_messages.push(oneMessage);
+          saveMessage();
         },
       });
     } else {
@@ -125,7 +141,7 @@ async function saveMessage() {
     //iterate through each message and keep the metadata
     const request = new Request({
       session_id: message.session_id,
-      service_name: "Admin Service",
+      service_name: "Admin",
       time: Date.now(),
       request_duration: Date.now() - message.timestamp,
       request_status: true,
@@ -164,14 +180,19 @@ async function checkDocumentAvailability(value) {
 //aggregate result of the MongoDB document
 async function processMonitoring() {
   try {
-    //manipulate result in order to get servicename, total_request, avgDuration, and request_status
     var monitoring_result = await Request.aggregate([
+      {
+        //_id:-1 => sort the result backwards
+        $sort: { _id: -1 },
+      },
+      // Group by "service_name" and get the required data
       {
         $group: {
           _id: "$service_name",
           total_request: { $count: {} },
           avgDuration: { $avg: "$request_duration" },
-          request_status: { $addToSet: "$request_status" },
+          // Use $first to get the latest inserted "request_status"
+          latest_request_status: { $first: "$request_status" },
         },
       },
     ]).exec();
@@ -186,56 +207,5 @@ module.exports = {
   receiveMessage,
   saveMessage,
   processMonitoring,
+  checkMicroservicesHealth,
 };
-
-// module.exports = monitoring_result;
-// if (serviceAvailability()) {
-
-// } else {
-//   console.log("================================== SERVICE UNAVAILABLE =====================================");
-// }
-
-//disconnect kafka client after the program is finished
-admin.disconnect();
-producer.disconnect();
-consumer.disconnect();
-consumer1.disconnect();
-
-//check topic availability on apache kafka
-// async function topicAvailability(topic_name) {
-//   //check topic availibility
-//   try {
-//     const metadata = admin.fetchTopicMetadata({ topic: topic_name });
-//     return metadata.topics.length > 0;
-//   } catch (err) {
-//     //log error if exists => for debugging purpose
-//     console.log("==================== ERROR ON TOPIC AVAILABILITY CHECKER ===============================");
-//     console.error("Error occured: ", err);
-//     return false;
-//   }
-// }
-
-// //check service availability
-// async function serviceAvailability(topic) {
-//   //check if topic is created by the service / available
-//   const topicExists = topicAvailability("admin-availability");
-//   try {
-//     if (topicExists) {
-//       //check if message coming in from the producer(microservices)
-//       consumer1.run({
-//         eachMessage: ({ topic, partition, message }) => {
-//           availabilityMessage.push(JSON.parse(message));
-//         },
-//       });
-//     } else {
-//       console.log("Topic does not exist yet");
-//     }
-//   } catch (err) {
-//     //log error if exists => for debugging purpose
-//     console.log(err);
-//     console.log("==================== ERROR ON SERVICE AVAILABILITY CHECKER ===============================");
-//   }
-
-//   console.log(availabilityMessage);
-//   return availabilityMessage.length > 0 ? true : false;
-// }

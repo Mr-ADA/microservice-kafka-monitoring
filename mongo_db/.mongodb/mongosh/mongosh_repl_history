@@ -3,6 +3,12 @@ db.dropDatabase()
 use WarehouseManagement
 exit
 db.dropDatabase()
+use WarehouseManagement
+exit
+db.dropDatabase()
+use WarehouseManagement
+exit
+db.dropDatabase()
 mongosh WarehouseManagement --eval 'db.dropDatabase()'
 mongo WarehouseManagement --eval 'db.dropDatabase()'
 use WarehouseManagement

@@ -15,10 +15,7 @@ const io = new Server(server, {
 });
 
 //==================== GET FUNCTIONS FROM MONITORING_SERVICES.JS =================================
-const { receiveMessage } = require("./monitoring_services.js");
-const { saveMessage } = require("./monitoring_services.js");
-const { processMonitoring } = require("./monitoring_services.js");
-
+const { receiveMessage, processMonitoring, checkMicroservicesHealth } = require("./monitoring_services.js");
 // Serve static files from the "views" directory
 app.use(express.static(path.join(__dirname, "/views")));
 // Read json file coming to the server
@@ -30,22 +27,25 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "/views/monitoring-view.html"));
 });
 
+const microserviceUrls = {
+  Admin: "http://admin_services:3000",
+  // Add more microservices here
+};
 //========================== SETUP WEBSOCKET (socket.io) FOR REAL-TIME DISPLAY =================================
 io.on("connection", (socket) => {
   /*
   make sure to write codes inside the io.on("connection") block in order to maintain the connection 
   to be established
   */
-  setInterval(() => {
-    receiveMessage();
-    saveMessage();
+  receiveMessage();
+  setInterval(async () => {
+    var service_availability = await checkMicroservicesHealth(microserviceUrls);
     var monitoring_result = processMonitoring();
     monitoring_result.then((messages) => {
       messages.forEach((message) => {
         try {
+          message.latest_request_status = service_availability[message._id];
           socket.emit("emitMessage", message);
-          console.log("=============== PRINT OUT MESSAGES ====================");
-          console.log(message);
         } catch (err) {
           console.log(err);
         }
