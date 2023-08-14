@@ -1,5 +1,5 @@
-# wms-kafka-monitoring
-This is a project that uses Apache Kafka (using KafkaJS) to send monitoring data to a monitoring services which will gauge the microservice performance based on number of request coming in and processing time of the requests
+# microservice-kafka-monitoring
+This is a project that uses Apache Kafka (using KafkaJS) to send monitoring data to a monitoring service which will gauge the microservice performance based on number of request coming in and processing time of the requests
 
 ## Microservice:
 1. Admin Service
